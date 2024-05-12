@@ -37,9 +37,23 @@ class EventSet(Ledger):
             stats = self.detection_statistic[:, None]
             return (stats >= threshold).sum(0)
 
+    @property
+    def min_far(self):
+        """
+        Lowest FAR in Hz that can be resolved given background
+        livetime analyzed
+        """
+        return 1 / self.Tb * SECONDS_IN_YEAR
+
     def far(self, threshold: F) -> F:
+        """
+        Far in Hz for a given detection statistic threshold, or
+        the minimum FAR that can be resolved
+        given the accumulated background livetime
+        """
         nb = self.nb(threshold)
-        return SECONDS_IN_YEAR * nb / self.Tb
+        far = SECONDS_IN_YEAR * nb / self.Tb
+        return max(far, self.min_far)
 
     def significance(self, threshold: F, T: float) -> F:
         """see https://arxiv.org/pdf/1508.02357.pdf, eq. 17
@@ -70,6 +84,16 @@ class EventSet(Ledger):
 
         # TODO: have an 'inplace=False' option that returns a new object?
         return self[~veto_mask]
+
+    def threshold_at_far(self, far: float):
+        """
+        Return the detection statistic threshold
+        that corresponds to a given far in Hz
+        """
+        livetime = self.Tb
+        num_events = livetime * far
+        det_stats = sorted(self.detection_statistic)
+        return det_stats[-int(num_events)]
 
 
 @dataclass
